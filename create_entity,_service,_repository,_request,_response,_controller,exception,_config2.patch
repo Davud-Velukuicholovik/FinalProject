@@ -1,0 +1,1122 @@
+Index: src/main/java/com.davyd.shop/entity/ProductCount.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/entity/ProductCount.java	(date 1566424729960)
++++ src/main/java/com.davyd.shop/entity/ProductCount.java	(date 1566424729960)
+@@ -0,0 +1,29 @@
++package com.davyd.shop.entity;
++
++
++import lombok.AllArgsConstructor;
++import lombok.Getter;
++import lombok.NoArgsConstructor;
++import lombok.Setter;
++
++import javax.persistence.*;
++
++@NoArgsConstructor
++@AllArgsConstructor
++@Getter
++@Setter
++
++@Entity
++public class ProductCount {
++    @Id
++    @GeneratedValue(strategy = GenerationType.IDENTITY)
++    private Long id;
++
++    private Integer count;
++
++    @ManyToOne
++    private Product product;
++
++    @ManyToOne
++    private Order order;
++}
+Index: src/main/java/com.davyd.shop/entity/Order.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/entity/Order.java	(date 1566420600455)
++++ src/main/java/com.davyd.shop/entity/Order.java	(date 1566420600455)
+@@ -0,0 +1,36 @@
++package com.davyd.shop.entity;
++
++import lombok.AllArgsConstructor;
++import lombok.Getter;
++import lombok.NoArgsConstructor;
++import lombok.Setter;
++
++import javax.persistence.*;
++import java.time.LocalDate;
++import java.time.LocalTime;
++import java.util.ArrayList;
++import java.util.List;
++
++@NoArgsConstructor
++@AllArgsConstructor
++@Getter
++@Setter
++
++@Entity
++@Table(name = "_order")
++public class Order {
++    @Id
++    @GeneratedValue(strategy = GenerationType.IDENTITY)
++    private Long id;
++
++    private LocalDate date;
++
++    private LocalTime time;
++
++    private Long sum;
++
++    private String phoneNumber;
++
++    @OneToMany(mappedBy = "order")
++    private List<ProductCount> productCounts = new ArrayList<>();
++}
+Index: src/main/java/com.davyd.shop/service/CategoryService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/service/CategoryService.java	(date 1566426568999)
++++ src/main/java/com.davyd.shop/service/CategoryService.java	(date 1566426568999)
+@@ -0,0 +1,58 @@
++package com.davyd.shop.service;
++
++import com.davyd.shop.dto.request.CategoryRequest;
++import com.davyd.shop.dto.response.CategoryResponse;
++import com.davyd.shop.entity.Category;
++import com.davyd.shop.exception.HasDependenciesException;
++import com.davyd.shop.exception.NoMatchesException;
++import com.davyd.shop.repository.CategoryRepository;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.data.domain.Sort;
++import org.springframework.stereotype.Service;
++
++import java.util.List;
++import java.util.stream.Collectors;
++
++@Service
++public class CategoryService {
++
++    @Autowired
++    private CategoryRepository categoryRepository;
++
++    public void save(CategoryRequest request) {
++        categoryRepository.save(
++                categoryRequestToCategory(null, request));
++    }
++
++    public List<CategoryResponse> findAll(String fieldName) {
++        return categoryRepository.findAll(Sort.by(fieldName)).stream()
++                .map(CategoryResponse::new)
++                .collect(Collectors.toList());
++    }
++
++    public Category findOne(Long id) {
++        return categoryRepository.findById(id).orElseThrow(() -> new NoMatchesException("Category with id " + id + " not exists"));
++    }
++
++    public void update(CategoryRequest request, Long id) {
++        categoryRepository.save(categoryRequestToCategory(findOne(id), request));
++    }
++
++    public void delete(Long id) {
++        Category category = findOne(id);
++        if (category.getSubcategories().isEmpty()) {
++            categoryRepository.delete(category);
++        } else {
++            throw new HasDependenciesException("Cannot delete category with id " + id + " because it has dependencies");
++        }
++    }
++
++    private Category categoryRequestToCategory(Category category,
++                                               CategoryRequest request) {
++        if (category == null) {
++            category = new Category();
++        }
++        category.setName(request.getName());
++        return category;
++    }
++}
+Index: src/main/java/com.davyd.shop/service/SubcategoryService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/service/SubcategoryService.java	(date 1566426569571)
++++ src/main/java/com.davyd.shop/service/SubcategoryService.java	(date 1566426569571)
+@@ -0,0 +1,31 @@
++package com.davyd.shop.service;
++
++import com.davyd.shop.dto.request.SubcategoryRequest;
++import com.davyd.shop.entity.Category;
++import com.davyd.shop.entity.Subcategory;
++import com.davyd.shop.exception.NoMatchesException;
++import com.davyd.shop.repository.SubcategoryRepository;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Service;
++
++@Service
++public class SubcategoryService {
++
++    @Autowired
++    private SubcategoryRepository subcategoryRepository;
++
++    @Autowired
++    private CategoryService categoryService;
++
++    public void save(SubcategoryRequest request) {
++        Subcategory subcategory = new Subcategory();
++        subcategory.setName(request.getName());
++        Category category = categoryService.findOne(request.getCategoryId());
++        subcategory.setCategory(category);
++        subcategoryRepository.save(subcategory);
++    }
++
++    public Subcategory findOne(Long id) {
++        return subcategoryRepository.findById(id).orElseThrow(() -> new NoMatchesException("Subcategory with id " + id + " not exists"));
++    }
++}
+Index: src/main/java/com.davyd.shop/entity/Subcategory.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/entity/Subcategory.java	(date 1566424730004)
++++ src/main/java/com.davyd.shop/entity/Subcategory.java	(date 1566424730004)
+@@ -0,0 +1,29 @@
++package com.davyd.shop.entity;
++import lombok.AllArgsConstructor;
++import lombok.Getter;
++import lombok.NoArgsConstructor;
++import lombok.Setter;
++
++import javax.persistence.*;
++import java.util.ArrayList;
++import java.util.List;
++
++@NoArgsConstructor
++@AllArgsConstructor
++@Getter
++@Setter
++
++@Entity
++public class Subcategory {
++    @Id
++    @GeneratedValue(strategy = GenerationType.IDENTITY)
++    private Long id;
++
++    private String name;
++
++    @ManyToOne
++    private Category category;
++
++    @OneToMany(mappedBy = "subcategory")
++    private List<Product> products = new ArrayList<>();
++}
+Index: src/main/java/com.davyd.shop/entity/User.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/entity/User.java	(date 1566424729800)
++++ src/main/java/com.davyd.shop/entity/User.java	(date 1566424729800)
+@@ -0,0 +1,27 @@
++package com.davyd.shop.entity;
++
++import lombok.*;
++
++import javax.persistence.*;
++import java.util.ArrayList;
++import java.util.List;
++
++@NoArgsConstructor
++@AllArgsConstructor
++@Builder
++@Getter
++@Setter
++
++@Entity
++public class User {
++
++    @Id
++    @GeneratedValue(strategy = GenerationType.IDENTITY)
++    private Long id;
++
++    private String username;
++    private String password;
++
++    @ManyToMany
++    private List<Product> favoriteProducts = new ArrayList<>();
++}
+Index: src/main/java/com.davyd.shop/entity/Product.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/entity/Product.java	(date 1566424730056)
++++ src/main/java/com.davyd.shop/entity/Product.java	(date 1566424730056)
+@@ -0,0 +1,38 @@
++package com.davyd.shop.entity;
++
++import lombok.*;
++
++import javax.persistence.*;
++import java.util.ArrayList;
++import java.util.List;
++
++@NoArgsConstructor
++@AllArgsConstructor
++@Builder
++@Getter
++@Setter
++
++@Entity
++public class Product {
++
++    @Id
++    @GeneratedValue(strategy = GenerationType.IDENTITY)
++    private Long id;
++
++    private String name;
++
++    private Long price;
++
++    private String photo;
++
++    @Column(columnDefinition = "text")
++    private String description;
++
++    private Double rating;
++
++    @ManyToOne
++    private Subcategory subcategory;
++
++    @ManyToMany(mappedBy = "favoriteProducts")
++    private List<User> users = new ArrayList<>();
++}
+Index: src/main/java/com.davyd.shop/entity/Category.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/entity/Category.java	(date 1566424730104)
++++ src/main/java/com.davyd.shop/entity/Category.java	(date 1566424730104)
+@@ -0,0 +1,29 @@
++package com.davyd.shop.entity;
++
++
++import lombok.AllArgsConstructor;
++import lombok.Getter;
++import lombok.NoArgsConstructor;
++import lombok.Setter;
++
++import javax.persistence.*;
++import java.util.ArrayList;
++import java.util.List;
++
++@NoArgsConstructor
++@AllArgsConstructor
++@Getter
++@Setter
++
++@Entity
++public class Category {
++    @Id
++    @GeneratedValue(strategy = GenerationType.IDENTITY)
++    private Long id;
++
++    @Column(unique = true, nullable = false)
++    private String name;
++
++    @OneToMany(mappedBy = "category")
++    private List<Subcategory> subcategories = new ArrayList<>();
++}
+Index: src/main/resources/application.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/application.properties	(date 1566427511656)
++++ src/main/resources/application.properties	(date 1566427511656)
+@@ -0,0 +1,9 @@
++spring.datasource.url=jdbc:mysql://localhost/FinalProject?serverTimezone=UTC
++spring.datasource.username=root
++spring.datasource.password=root
++
++spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
++#spring.jpa.database-platform=org.hibernate.dialect.MySQL5InnoDBDialect
++spring.jpa.database-platform=org.hibernate.dialect.MySQL57Dialect
++spring.jpa.show-sql=true
++spring.jpa.hibernate.ddl-auto=update
+\ No newline at end of file
+Index: src/main/java/com.davyd.shop/config/SwaggerConfig.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/config/SwaggerConfig.java	(date 1566426568907)
++++ src/main/java/com.davyd.shop/config/SwaggerConfig.java	(date 1566426568907)
+@@ -0,0 +1,34 @@
++package com.davyd.shop.config;
++
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.Configuration;
++import springfox.documentation.builders.ApiInfoBuilder;
++import springfox.documentation.builders.PathSelectors;
++import springfox.documentation.builders.RequestHandlerSelectors;
++import springfox.documentation.service.ApiInfo;
++import springfox.documentation.spi.DocumentationType;
++import springfox.documentation.spring.web.plugins.Docket;
++import springfox.documentation.swagger2.annotations.EnableSwagger2;
++
++@Configuration
++@EnableSwagger2
++public class SwaggerConfig {
++    @Bean
++    public Docket api() {
++        return new Docket(DocumentationType.SWAGGER_2)
++                .select()
++                .apis(RequestHandlerSelectors.any())
++                .paths(PathSelectors.any())
++                .build()
++                .apiInfo(apiInfo());
++    }
++
++    private ApiInfo apiInfo() {
++        return new ApiInfoBuilder().title("REST API")
++                .description("The REST API for demo swagger.").termsOfServiceUrl("")
++                .license("Apache License Version 2.0")
++                .licenseUrl("https://www.apache.org/licenses/LICENSE-2.0")
++                .version("0.0.1")
++                .build();
++    }
++}
+\ No newline at end of file
+Index: src/main/java/com.davyd.shop/config/StaticResourcesConfig.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/config/StaticResourcesConfig.java	(date 1566426569803)
++++ src/main/java/com.davyd.shop/config/StaticResourcesConfig.java	(date 1566426569803)
+@@ -0,0 +1,20 @@
++package com.davyd.shop.config;
++
++import org.springframework.context.annotation.Configuration;
++import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
++import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
++
++import java.nio.file.Paths;
++
++import static com.davyd.shop.service.FileService.IMG_DIR;
++
++
++@Configuration
++public class StaticResourcesConfig implements WebMvcConfigurer {
++
++    @Override
++    public void addResourceHandlers(ResourceHandlerRegistry registry) {
++        registry.addResourceHandler("/images/**")
++                .addResourceLocations(Paths.get(IMG_DIR).toUri().toString());
++    }
++}
+Index: src/main/java/com.davyd.shop/exception/HasDependenciesException.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/exception/HasDependenciesException.java	(date 1566426569103)
++++ src/main/java/com.davyd.shop/exception/HasDependenciesException.java	(date 1566426569103)
+@@ -0,0 +1,11 @@
++package com.davyd.shop.exception;
++
++public class HasDependenciesException extends RuntimeException {
++
++    public HasDependenciesException() {
++    }
++
++    public HasDependenciesException(String message) {
++        super(message);
++    }
++}
+Index: src/main/java/com.davyd.shop/dto/response/PageResponse.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/dto/response/PageResponse.java	(date 1566426569663)
++++ src/main/java/com.davyd.shop/dto/response/PageResponse.java	(date 1566426569663)
+@@ -0,0 +1,16 @@
++package com.davyd.shop.dto.response;
++
++import lombok.AllArgsConstructor;
++import lombok.Getter;
++import lombok.Setter;
++
++import java.util.List;
++
++@Getter
++@Setter
++@AllArgsConstructor
++public class PageResponse<T> {
++    private Long totalElements;
++    private Integer totalPages;
++    private List<T> data;
++}
+Index: src/main/java/com.davyd.shop/dto/response/SubcategoryResponse.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/dto/response/SubcategoryResponse.java	(date 1566429133063)
++++ src/main/java/com.davyd.shop/dto/response/SubcategoryResponse.java	(date 1566429133063)
+@@ -0,0 +1,17 @@
++package com.davyd.shop.dto.response;
++
++import com.davyd.shop.entity.Subcategory;
++import lombok.Getter;
++import lombok.Setter;
++
++@Getter
++@Setter
++public class SubcategoryResponse {
++    private Long id;
++    private String name;
++
++    public SubcategoryResponse(Subcategory subcategory) {
++        id = subcategory.getId();
++        name = subcategory.getName();
++    }
++}
+Index: src/main/java/com.davyd.shop/exception/NoMatchesException.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/exception/NoMatchesException.java	(date 1566426569051)
++++ src/main/java/com.davyd.shop/exception/NoMatchesException.java	(date 1566426569051)
+@@ -0,0 +1,11 @@
++package com.davyd.shop.exception;
++
++public class NoMatchesException extends RuntimeException {
++
++    public NoMatchesException() {
++    }
++
++    public NoMatchesException(String message) {
++        super(message);
++    }
++}
+Index: src/main/java/com.davyd.shop/dto/response/ProductResponse.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/dto/response/ProductResponse.java	(date 1566426569447)
++++ src/main/java/com.davyd.shop/dto/response/ProductResponse.java	(date 1566426569447)
+@@ -0,0 +1,28 @@
++package com.davyd.shop.dto.response;
++
++import com.davyd.shop.entity.Product;
++
++import lombok.Getter;
++import lombok.Setter;
++
++@Getter
++@Setter
++public class ProductResponse {
++    private Long id;
++    private String name;
++    private Long price;
++    private String description;
++    private String photo;
++    private Double rating;
++    private Long subcategoryId;
++
++    public ProductResponse(Product product) {
++        id = product.getId();
++        name = product.getName();
++        price = product.getPrice();
++        description = product.getDescription();
++        photo = product.getPhoto();
++        rating = product.getRating();
++        subcategoryId = product.getSubcategory().getId();
++    }
++}
+Index: src/main/java/com.davyd.shop/ShopApplication.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/ShopApplication.java	(date 1566426569747)
++++ src/main/java/com.davyd.shop/ShopApplication.java	(date 1566426569747)
+@@ -0,0 +1,12 @@
++package com.davyd.shop;
++
++import org.springframework.boot.SpringApplication;
++import org.springframework.boot.autoconfigure.SpringBootApplication;
++
++@SpringBootApplication
++public class ShopApplication {
++    public static void main(String[] args) {
++        SpringApplication.run(ShopApplication.class, args);
++    }
++
++}
+Index: src/main/java/com.davyd.shop/service/FileService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/service/FileService.java	(date 1566426569143)
++++ src/main/java/com.davyd.shop/service/FileService.java	(date 1566426569143)
+@@ -0,0 +1,54 @@
++package com.davyd.shop.service;
++
++import org.springframework.stereotype.Service;
++
++import java.io.File;
++import java.io.IOException;
++import java.nio.file.Files;
++import java.nio.file.Paths;
++import java.util.Base64;
++import java.util.UUID;
++
++@Service
++public class FileService {
++
++    public static final String IMG_DIR =
++            System.getProperty("user.home") + File.separator +
++                    "images" + File.separator;
++
++//    "/home/kindgeek/images/"
++//    "C:\Users\Study\images\"
++
++    public String saveFile(String request) throws IOException {
++        createDir(IMG_DIR);//create folder if not exists
++
++        String[] data = request.split(",");
++        String metaInfo = data[0]; //data:image/jpeg;base64
++        String base64File = data[1];///9j/4AAQSkZJRgABAQE....
++
++        String fileName = createFileName(getFileExtensionFromMetaInfo(metaInfo));
++
++        Files.write(
++                Paths.get(IMG_DIR, fileName),
++                Base64.getDecoder().decode(base64File.getBytes())
++        );
++        return fileName;
++    }
++
++    private String createFileName(String fileExtension) {
++        String fileName = UUID.randomUUID().toString();
++        return String.format("%s.%s", fileName, fileExtension);
++    }
++
++
++    private String getFileExtensionFromMetaInfo(String metaInfo) {
++        return metaInfo.split("/")[1].split(";")[0];
++    }
++
++    private void createDir(String dir) {
++        File file = new File(dir);
++        if (!file.exists()) {
++            file.mkdirs();
++        }
++    }
++}
+Index: src/main/java/com.davyd.shop/dto/response/CategoryResponse.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/dto/response/CategoryResponse.java	(date 1566426568795)
++++ src/main/java/com.davyd.shop/dto/response/CategoryResponse.java	(date 1566426568795)
+@@ -0,0 +1,18 @@
++package com.davyd.shop.dto.response;
++
++
++import com.davyd.shop.entity.Category;
++import lombok.Getter;
++import lombok.Setter;
++
++@Getter
++@Setter
++public class CategoryResponse {
++    private Long id;
++    private String name;
++
++    public CategoryResponse(Category category) {
++        id = category.getId();
++        name = category.getName();
++    }
++}
+Index: src/main/java/com.davyd.shop/dto/request/ProductRequest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/dto/request/ProductRequest.java	(date 1566426569523)
++++ src/main/java/com.davyd.shop/dto/request/ProductRequest.java	(date 1566426569523)
+@@ -0,0 +1,29 @@
++package com.davyd.shop.dto.request;
++
++import lombok.Getter;
++import lombok.Setter;
++
++import javax.validation.constraints.*;
++
++@Getter
++@Setter
++public class ProductRequest {
++    @NotBlank
++    private String name;
++
++    @Positive
++    @NotNull
++    private Long price;
++
++    @NotNull
++    @DecimalMin("0.1")
++    @DecimalMax("5.0")
++    private Double rating;
++    @NotBlank
++    private String description;
++
++    @NotNull
++    private Long subcategoryId;
++    @NotBlank
++    private String photo;
++}
+Index: src/main/java/com.davyd.shop/dto/request/CategoryRequest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/dto/request/CategoryRequest.java	(date 1566426569487)
++++ src/main/java/com.davyd.shop/dto/request/CategoryRequest.java	(date 1566426569487)
+@@ -0,0 +1,13 @@
++package com.davyd.shop.dto.request;
++
++import lombok.Getter;
++import lombok.Setter;
++
++import javax.validation.constraints.NotBlank;
++
++@Getter
++@Setter
++public class CategoryRequest {
++    @NotBlank
++    private String name;
++}
+Index: src/test/java/com/davyd/shop/ShopApplicationTests.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/java/com/davyd/shop/ShopApplicationTests.java	(date 1566427640385)
++++ src/test/java/com/davyd/shop/ShopApplicationTests.java	(date 1566427640385)
+@@ -0,0 +1,16 @@
++package com.davyd.shop;
++
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.springframework.boot.test.context.SpringBootTest;
++import org.springframework.test.context.junit4.SpringRunner;
++
++@RunWith(SpringRunner.class)
++@SpringBootTest
++public class ShopApplicationTests {
++
++    @Test
++    public void contextLoads() {
++    }
++
++}
+Index: src/main/java/com.davyd.shop/repository/SubcategoryRepository.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/repository/SubcategoryRepository.java	(date 1566426569703)
++++ src/main/java/com.davyd.shop/repository/SubcategoryRepository.java	(date 1566426569703)
+@@ -0,0 +1,18 @@
++package com.davyd.shop.repository;
++
++
++import com.davyd.shop.entity.Subcategory;
++import org.springframework.data.jpa.repository.JpaRepository;
++import org.springframework.data.jpa.repository.Query;
++import org.springframework.data.repository.query.Param;
++import org.springframework.stereotype.Repository;
++
++import java.util.List;
++
++@Repository
++public interface SubcategoryRepository extends JpaRepository<Subcategory, Long> {
++
++
++    @Query("from Subcategory s join s.category c where c.id=:categoryaaaId")
++    List<Subcategory> findAllByCategoryId(@Param("categoryaaaId") Long categoryId);
++}
+Index: src/main/java/com.davyd.shop/dto/request/SubcategoryRequest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/dto/request/SubcategoryRequest.java	(date 1566426569399)
++++ src/main/java/com.davyd.shop/dto/request/SubcategoryRequest.java	(date 1566426569399)
+@@ -0,0 +1,17 @@
++package com.davyd.shop.dto.request;
++
++import lombok.Getter;
++import lombok.Setter;
++
++import javax.validation.constraints.NotBlank;
++import javax.validation.constraints.NotNull;
++
++@Getter
++@Setter
++public class SubcategoryRequest {
++    @NotBlank
++    private String name;
++
++    @NotNull
++    private Long categoryId;
++}
+Index: src/main/java/com.davyd.shop/repository/ProductRepository.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/repository/ProductRepository.java	(date 1566426568851)
++++ src/main/java/com.davyd.shop/repository/ProductRepository.java	(date 1566426568851)
+@@ -0,0 +1,16 @@
++package com.davyd.shop.repository;
++
++
++import com.davyd.shop.entity.Product;
++import org.springframework.data.jpa.repository.JpaRepository;
++import org.springframework.data.jpa.repository.Query;
++import org.springframework.data.repository.query.Param;
++import org.springframework.stereotype.Repository;
++
++import java.util.List;
++
++@Repository
++public interface ProductRepository extends JpaRepository<Product, Long> {
++    @Query("from Product p join p.subcategory s join s.category c where c.id=:categoryId")
++    List<Product> findAllByCategoryId(@Param("categoryId") Long categoryId);
++}
+Index: src/main/java/com.davyd.shop/repository/CategoryRepository.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/repository/CategoryRepository.java	(date 1566426569355)
++++ src/main/java/com.davyd.shop/repository/CategoryRepository.java	(date 1566426569355)
+@@ -0,0 +1,10 @@
++package com.davyd.shop.repository;
++
++
++import com.davyd.shop.entity.Category;
++import org.springframework.data.jpa.repository.JpaRepository;
++import org.springframework.stereotype.Repository;
++
++@Repository
++public interface CategoryRepository extends JpaRepository<Category, Long> {
++}
+Index: src/main/java/com.davyd.shop/controller/CategoryController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/controller/CategoryController.java	(date 1566426569615)
++++ src/main/java/com.davyd.shop/controller/CategoryController.java	(date 1566426569615)
+@@ -0,0 +1,39 @@
++package com.davyd.shop.controller;
++
++import com.davyd.shop.dto.request.CategoryRequest;
++import com.davyd.shop.dto.response.CategoryResponse;
++import com.davyd.shop.service.CategoryService;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.web.bind.annotation.*;
++
++import javax.validation.Valid;
++import java.util.List;
++
++@RestController
++@RequestMapping("category")
++public class CategoryController {
++
++    @Autowired
++    private CategoryService categoryService;
++
++    @PostMapping
++    public void save(@Valid @RequestBody CategoryRequest request) {
++        categoryService.save(request);
++    }
++
++    @GetMapping
++    public List<CategoryResponse> findAll(@RequestParam(defaultValue = "id") String fieldName) {
++        return categoryService.findAll(fieldName);
++    }
++
++    @PutMapping
++    public void update(@Valid @RequestBody CategoryRequest request, Long id) {
++        categoryService.update(request, id);
++    }
++
++    @DeleteMapping
++    public void delete(Long id) {
++        categoryService.delete(id);
++    }
++
++}
+Index: src/main/java/com.davyd.shop/controller/ProductController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/controller/ProductController.java	(date 1566426569851)
++++ src/main/java/com.davyd.shop/controller/ProductController.java	(date 1566426569851)
+@@ -0,0 +1,40 @@
++package com.davyd.shop.controller;
++
++import com.davyd.shop.dto.request.ProductRequest;
++import com.davyd.shop.dto.response.PageResponse;
++import com.davyd.shop.dto.response.ProductResponse;
++import com.davyd.shop.service.ProductService;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.data.domain.Sort;
++import org.springframework.web.bind.annotation.*;
++
++import javax.validation.Valid;
++import java.io.IOException;
++
++@RestController
++@RequestMapping("product")
++public class ProductController {
++
++    @Autowired
++    private ProductService productService;
++
++    @PostMapping
++    public void save(@Valid @RequestBody ProductRequest request) throws IOException {
++        productService.save(request);
++    }
++
++    @GetMapping
++    public PageResponse<ProductResponse> findPage(
++            @RequestParam Integer page,
++            @RequestParam Integer size,
++            @RequestParam(defaultValue = "name") String fieldName,
++            @RequestParam(defaultValue = "ASC") Sort.Direction direction
++            ) {
++        return productService.findPage(page, size, fieldName, direction);
++    }
++
++    @PutMapping
++    public void update(@Valid @RequestBody ProductRequest request, Long id) throws IOException {
++        productService.update(request, id);
++    }
++}
+Index: src/main/java/com.davyd.shop/controller/SubcategoryController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/controller/SubcategoryController.java	(date 1566426568687)
++++ src/main/java/com.davyd.shop/controller/SubcategoryController.java	(date 1566426568687)
+@@ -0,0 +1,25 @@
++package com.davyd.shop.controller;
++
++import com.davyd.shop.dto.request.SubcategoryRequest;
++
++import com.davyd.shop.service.SubcategoryService;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.web.bind.annotation.PostMapping;
++import org.springframework.web.bind.annotation.RequestBody;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.RestController;
++
++import javax.validation.Valid;
++
++@RestController
++@RequestMapping("subcategory")
++public class SubcategoryController {
++
++    @Autowired
++    private SubcategoryService subcategoryService;
++
++    @PostMapping
++    public void save(@Valid @RequestBody SubcategoryRequest request) {
++        subcategoryService.save(request);
++    }
++}
+Index: pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- pom.xml	(date 1566426894379)
++++ pom.xml	(date 1566426894379)
+@@ -0,0 +1,76 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
++    <modelVersion>4.0.0</modelVersion>
++    <parent>
++        <groupId>org.springframework.boot</groupId>
++        <artifactId>spring-boot-starter-parent</artifactId>
++        <version>2.1.6.RELEASE</version>
++        <relativePath/> <!-- lookup parent from repository -->
++    </parent>
++    <groupId>com.davyd</groupId>
++    <artifactId>shop</artifactId>
++    <version>0.0.1-SNAPSHOT</version>
++    <name>shop</name>
++    <description>FinalProject</description>
++
++    <properties>
++        <java.version>1.8</java.version>
++    </properties>
++
++    <dependencies>
++
++        <dependency>
++            <groupId>org.springframework.boot</groupId>
++            <artifactId>spring-boot-devtools</artifactId>
++            <optional>true</optional>
++        </dependency>
++
++        <dependency>
++            <groupId>org.springframework.boot</groupId>
++            <artifactId>spring-boot-starter-data-jpa</artifactId>
++        </dependency>
++
++        <dependency>
++            <groupId>org.springframework.boot</groupId>
++            <artifactId>spring-boot-starter-web</artifactId>
++        </dependency>
++
++        <dependency>
++            <groupId>mysql</groupId>
++            <artifactId>mysql-connector-java</artifactId>
++            <scope>runtime</scope>
++        </dependency>
++        <dependency>
++            <groupId>org.projectlombok</groupId>
++            <artifactId>lombok</artifactId>
++            <optional>true</optional>
++        </dependency>
++        <dependency>
++            <groupId>org.springframework.boot</groupId>
++            <artifactId>spring-boot-starter-test</artifactId>
++            <scope>test</scope>
++        </dependency>
++
++        <dependency>
++            <groupId>io.springfox</groupId>
++            <artifactId>springfox-swagger2</artifactId>
++            <version>2.7.0</version>
++        </dependency>
++        <dependency>
++            <groupId>io.springfox</groupId>
++            <artifactId>springfox-swagger-ui</artifactId>
++            <version>2.7.0</version>
++        </dependency>
++    </dependencies>
++
++    <build>
++        <plugins>
++            <plugin>
++                <groupId>org.springframework.boot</groupId>
++                <artifactId>spring-boot-maven-plugin</artifactId>
++            </plugin>
++        </plugins>
++    </build>
++
++</project>
+Index: src/main/java/com.davyd.shop/service/ProductService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com.davyd.shop/service/ProductService.java	(date 1566426569207)
++++ src/main/java/com.davyd.shop/service/ProductService.java	(date 1566426569207)
+@@ -0,0 +1,66 @@
++package com.davyd.shop.service;
++
++import com.davyd.shop.dto.request.ProductRequest;
++import com.davyd.shop.dto.response.PageResponse;
++import com.davyd.shop.dto.response.ProductResponse;
++import com.davyd.shop.entity.Product;
++import com.davyd.shop.exception.NoMatchesException;
++import com.davyd.shop.repository.ProductRepository;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.data.domain.Page;
++import org.springframework.data.domain.PageRequest;
++import org.springframework.data.domain.Sort;
++import org.springframework.stereotype.Service;
++
++import java.io.IOException;
++import java.util.List;
++import java.util.stream.Collectors;
++
++@Service
++public class ProductService {
++
++    @Autowired
++    private ProductRepository productRepository;
++
++    @Autowired
++    private SubcategoryService subcategoryService;
++
++    @Autowired
++    private FileService fileService;
++
++    public void save(ProductRequest request) throws IOException {
++        productRepository.save(productRequestToProduct(null, request));
++    }
++
++    public PageResponse<ProductResponse> findPage(Integer page, Integer size, String fieldName, Sort.Direction direction) {
++        Page<Product> data = productRepository.findAll(PageRequest.of(page, size, direction, fieldName));
++        List<ProductResponse> collect = data.get().map(ProductResponse::new).collect(Collectors.toList());
++        return new PageResponse<>(data.getTotalElements(),
++                data.getTotalPages(),
++                collect);
++
++    }
++
++    public void update(ProductRequest request, Long id) throws IOException {
++        productRepository.save(productRequestToProduct(findOne(id), request));
++    }
++
++    public Product findOne(Long id) {
++        return productRepository.findById(id).orElseThrow(() -> new NoMatchesException("Product with id " + id + " not exists"));
++    }
++
++    private Product productRequestToProduct(Product product, ProductRequest request) throws IOException {
++        if (product == null) {
++            product = new Product();
++        }
++        if (request.getPhoto() != null) {
++            product.setPhoto(fileService.saveFile(request.getPhoto()));
++        }
++        product.setName(request.getName());
++        product.setPrice(request.getPrice());
++        product.setDescription(request.getDescription());
++        product.setRating(request.getRating());
++        product.setSubcategory(subcategoryService.findOne(request.getSubcategoryId()));
++        return product;
++    }
++}
