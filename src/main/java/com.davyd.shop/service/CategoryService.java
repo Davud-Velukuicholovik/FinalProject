@@ -47,7 +47,7 @@ public class CategoryService {
         }
     }
 
-    private Category categoryRequestToCategory(Category category,
+   private Category categoryRequestToCategory(Category category,
                                                CategoryRequest request) {
         if (category == null) {
             category = new Category();
